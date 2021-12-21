@@ -20,7 +20,7 @@ result_list = []
 def opts():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-n", "--namespace", default="default", 
+    parser.add_argument("-n", "--namespace", 
                         help="Filter report on namespace. (Default = 'default' namespace)")
 
     parser.add_argument("-p", "--package_name",
@@ -34,14 +34,22 @@ def opts():
     }
 
 def running_containers(namespace):
-    print('Getting Runtime Images for ' + namespace + ' namespace ...')
     url = API_ENDPOINT + '/api/scanning/v1/query/containers'
-    payload = json.dumps({
-      "scope": "kubernetes.namespace.name = \""+namespace+"\"",
-      "useCache": True,
-      "skipPolicyEvaluation": False,
-      "limit": 10000
-    })
+    if namespace is None:
+        print('Getting Runtime Images for all namespaces ...')
+        payload = json.dumps({
+            "useCache": True,
+            "skipPolicyEvaluation": False,
+            "limit": 10000
+        })
+    else:
+        print('Getting Runtime Images for ' + namespace + ' namespace ...')
+        payload = json.dumps({
+        "scope": "kubernetes.namespace.name = \""+namespace+"\"",
+        "useCache": True,
+        "skipPolicyEvaluation": False,
+        "limit": 10000
+        })
     response = requests.request("POST", url, headers=API_HEADERS, data=payload)
     return response.json()
 

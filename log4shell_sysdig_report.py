@@ -1,3 +1,7 @@
+# Make sure to have 2 environment variables set
+# export API_TOKEN="<Your Sysdig Secure API Token>""
+# export API_ENDPOINT="https://app.au1.sysdig.com"
+
 import requests
 import os
 import json

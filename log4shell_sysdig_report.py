@@ -1,60 +1,121 @@
-# Quickly hacked together on a Friday night, no error handling....
-# Make sure to have 2 environment variables set
-# export API_TOKEN="<Your Sysdig Secure API Token>""
-# export API_ENDPOINT="https://app.au1.sysdig.com"
-
 import requests
 import os
 import json
 import csv
+import argparse
 
-API_TOKEN = os.getenv('API_TOKEN') # Your Sysdig Secure API Token from User Profile
-API_ENDPOINT = os.getenv('API_ENDPOINT') # Your Sysdig Secure API Endpoint, ie https://app.au1.sysdig.com
-
-header = {'Authorization': 'Bearer ' + API_TOKEN}
-
-# Get list of image IDs
-url = API_ENDPOINT + "/api/scanning/v1/resultsDirect"
-response = requests.get(url, headers=header)
-imageList = response.json()
-#print(jsonResponse["vulns"]);
+API_TOKEN = os.getenv('API_TOKEN')
+API_ENDPOINT = os.getenv('API_ENDPOINT')
+API_HEADERS = {
+  'Authorization': 'Bearer ' + API_TOKEN,
+  'Content-Type': 'application/json'
+}
 
 result_list = []
 
+def opts():
+    parser = argparse.ArgumentParser()
 
-for images in imageList["results"]:
-    url = API_ENDPOINT + "/api/scanning/v1/images/by_id/" + images['imageId'] + "/vulnDirect/non-os"
-    response = requests.get(url, headers=header)
-    jsonResponse = response.json()
-    for data in jsonResponse["vulns"]:
-        if data['package_name'] == "log4j": # Filter only if package_name is log4j
-            print("log4j Package found in image" + images['fullTag'])
-            dict_data = {
-                "fullTag": images['fullTag'],
-                "imageID": images['imageId'],
-                "vuln": data['vuln'],
-                "vulnrabilityId": data['vuln'],
-                "package": data['package'],
-                "packageCPE": data['package_cpe'],
-                "packageName": data['package_name'],
-                "packagePath": data['package_path'],
-                "packageType": data['package_type'],
-                "severity": data['severity']
-            }
+    parser.add_argument("-n", "--namespace", default="default", 
+                        help="Filter report on namespace. (Default = 'default' namespace)")
+
+    parser.add_argument("-p", "--package_name",
+                        help="Filter report on package name.")
+
+    args = parser.parse_args()
+
+    return {
+        'NAMESPACE':args.namespace,
+        'PACKAGE_NAME':args.package_name
+    }
+
+def running_containers(namespace):
+    print('Getting Runtime Images for ' + namespace + ' namespace ...')
+    url = API_ENDPOINT + '/api/scanning/v1/query/containers'
+    payload = json.dumps({
+      "scope": "kubernetes.namespace.name = \""+namespace+"\"",
+      "useCache": True,
+      "skipPolicyEvaluation": False,
+      "limit": 10000
+    })
+    response = requests.request("POST", url, headers=API_HEADERS, data=payload)
+    return response.json()
+
+def non_os_vulns(image):
+    url = API_ENDPOINT + "/api/scanning/v1/images/by_id/" + image + "/vulnDirect/non-os"
+    response = requests.get(url, headers=API_HEADERS)
+    return response.json()
+
+def os_vulns(image):
+    url = API_ENDPOINT + "/api/scanning/v1/images/by_id/" + image + "/vulnDirect/os"
+    response = requests.get(url, headers=API_HEADERS)
+    return response.json()
+
+def vuln_data(image, image_vulns, package_name):
+    if package_name is not None:
+        for vuln in image_vulns["vulns"]:
+            if vuln['package_name'] == package_name:
+                dict_data = data_format(image, image_vulns, vuln)
+                result_list.append(dict_data)
+    else:
+        for vuln in image_vulns["vulns"]:
+            dict_data = data_format(image, image_vulns, vuln)
             result_list.append(dict_data)
 
-# Output JSON Results to terminal
-print(json.dumps(result_list,indent=4, sort_keys=True))
+def data_format(image, image_vulns, vuln):
+    dict_format = {
+        "fullTag": image['repo'],
+        "imageID": image['imageId'],
+        "vtype": image_vulns.get('vtype', 'None'),
+        "vuln": vuln['vuln'],
+        "vulnrabilityURL": vuln.get('url', 'None'),
+        "package": vuln['package'],
+        "packageCPE": vuln['package_cpe'],
+        "packageName": vuln['package_name'],
+        "packagePath": vuln['package_path'],
+        "packageType": vuln['package_type'],
+        "severity": vuln['severity'],
+        "fixVersion":  vuln.get('fix', 'None'),
+        "lastEvaluated": image.get('lastEvaluatedAt', '0'),
+        "disclosureDate": vuln.get('disclosure_date', '0'),
+        "solutionDate": vuln.get('solution_date', '0'),
+    }
+    return dict_format
 
-# Write json file
-with open('output.json', 'w') as outfile:
-    json.dump(result_list, outfile)
+def generate(package_name, imageList):
+    for image in imageList["images"]:
+        print(image['repo'] + ':' + image['tag'])
 
-# Write CSV file
-csv_columns = ['fullTag','imageID','vuln', 'vulnrabilityId', 'package', 'packageCPE', 'packageName', 'packagePath', 'packageType', 'severity' ]
-csv_file = "output.csv"
-with open(csv_file, 'w') as csvfile:
-    writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-    writer.writeheader()
-    for data in result_list:
-        writer.writerow(data)
+        image_vulns = os_vulns(image['imageId'])
+        if len(image_vulns['vulns']) != 0:
+            vuln_data(image, image_vulns, package_name)
+
+        image_vulns = non_os_vulns(image['imageId'])
+        if len(image_vulns['vulns']) != 0:
+            vuln_data(image, image_vulns, package_name)
+    return result_list
+
+def main():
+    args = opts()
+
+    imageList = running_containers(args['NAMESPACE'])
+    vulnList = generate(args['PACKAGE_NAME'], imageList)
+
+    # Output JSON Results to terminal
+    print(json.dumps(vulnList,indent=4, sort_keys=False))
+
+    # Write json file
+    with open('output.json', 'w') as outfile:
+        json.dump(vulnList, outfile)
+
+    # Write CSV file
+    csv_columns = ['fullTag','imageID', 'vtype', 'vuln', 'vulnrabilityURL', 'package', 'packageCPE', 'packageName', 'packagePath', 'packageType', 'severity', 'fixVersion', 'lastEvaluated', 'disclosureDate', 'solutionDate' ]
+    csv_file = "output.csv"
+    with open(csv_file, 'w') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+        writer.writeheader()
+        for data in vulnList:
+            writer.writerow(data)
+
+if __name__ == '__main__':
+    main()

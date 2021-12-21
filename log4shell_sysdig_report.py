@@ -80,7 +80,7 @@ def data_format(image, image_vulns, vuln):
         "imageID": image['imageId'],
         "vtype": image_vulns.get('vtype', 'None'),
         "vuln": vuln['vuln'],
-        "vulnrabilityURL": vuln.get('url', 'None'),
+        "vulnURL": vuln.get('url', 'None'),
         "package": vuln['package'],
         "packageCPE": vuln['package_cpe'],
         "packageName": vuln['package_name'],
@@ -121,7 +121,7 @@ def main():
         json.dump(vulnList, outfile)
 
     # Write CSV file
-    csv_columns = ['fullTag','imageID', 'vtype', 'vuln', 'vulnrabilityURL', 'package', 'packageCPE', 'packageName', 'packagePath', 'packageType', 'severity', 'fixVersion', 'lastEvaluated', 'disclosureDate', 'solutionDate' ]
+    csv_columns = ['fullTag','imageID', 'vtype', 'vuln', 'vulnURL', 'package', 'packageCPE', 'packageName', 'packagePath', 'packageType', 'severity', 'fixVersion', 'lastEvaluated', 'disclosureDate', 'solutionDate' ]
     csv_file = "output.csv"
     with open(csv_file, 'w') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)

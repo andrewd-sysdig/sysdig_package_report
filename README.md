@@ -10,12 +10,14 @@ export API_TOKEN="<Your Sysdig Secure API Token>"
 export API_ENDPOINT="https://app.au1.sysdig.com"
 ```
 
-Look in the cluster lab4, namespace example-voting-app for any vulnrabilities that have the log4j package
+### Look in the cluster lab4, namespace example-voting-app for any vulnerabilities that have the log4j package
  ``` ./sysdig_package_report.py -c lab4 -n example-voting-app -p log4j ```
-Look in the cluster lab4, namespace sock-shop for any vulnrabilities 
- ``` sysdig_package_report.py -c lab4 -n sock-shop ```
-Look through all clusters and namespaces for any vulnrabilities with the package log4j
- ``` sysdig_package_report.py -p log4j ```
+ 
+### Look in the cluster lab4, namespace sock-shop for any vulnerabilities  
+ ``` ./sysdig_package_report.py -c lab4 -n sock-shop ```
+ 
+### Look through all clusters and namespaces for any vulnerabilities with the package log4j
+ ``` ./sysdig_package_report.py -p log4j ```
 
 ## Sample CSV output
   ```

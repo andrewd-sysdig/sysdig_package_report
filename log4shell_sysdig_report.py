@@ -20,32 +20,39 @@ result_list = []
 def opts():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("-c", "--cluster", 
+                        help="Filter report on Cluster Name.")
+
     parser.add_argument("-n", "--namespace", 
-                        help="Filter report on namespace. (Default = 'default' namespace)")
+                        help="Filter report on namespace.")
 
     parser.add_argument("-p", "--package_name",
-                        help="Filter report on package name.")
+                        help="Filter report on package name. ie log4j")
 
     args = parser.parse_args()
 
+    if args.namespace and not args.cluster:
+        parser.error('Cluster is required when passing Namespace')
+
     return {
+        'CLUSTER':args.cluster,
         'NAMESPACE':args.namespace,
         'PACKAGE_NAME':args.package_name
     }
 
-def running_containers(namespace):
+def running_containers(cluster, namespace):
     url = API_ENDPOINT + '/api/scanning/v1/query/containers'
     if namespace is None:
-        print('Getting Runtime Images for all namespaces ...')
+        print('Getting Runtime Images for all Clusters and namespaces ...')
         payload = json.dumps({
             "useCache": True,
             "skipPolicyEvaluation": False,
             "limit": 10000
         })
     else:
-        print('Getting Runtime Images for ' + namespace + ' namespace ...')
+        print('Getting Runtime Images for Cluster: ' + cluster + ' and Namespace: ' + namespace + ' ...')
         payload = json.dumps({
-        "scope": "kubernetes.namespace.name = \""+namespace+"\"",
+        "scope": "kubernetes.cluster.name = \""+cluster+"\" and kubernetes.namespace.name = \""+namespace+"\"",
         "useCache": True,
         "skipPolicyEvaluation": False,
         "limit": 10000
@@ -110,7 +117,7 @@ def generate(package_name, imageList):
 def main():
     args = opts()
 
-    imageList = running_containers(args['NAMESPACE'])
+    imageList = running_containers(args['CLUSTER'], args['NAMESPACE'])
     vulnList = generate(args['PACKAGE_NAME'], imageList)
 
     # Output JSON Results to terminal

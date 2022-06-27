@@ -20,25 +20,41 @@ result_list = []
 def opts():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-c", "--cluster", 
-                        help="Filter report on Cluster Name.")
+    parser.add_argument("-t", "--report_type",
+                        help="Report type static/runtime")
 
-    parser.add_argument("-n", "--namespace", 
-                        help="Filter report on namespace.")
+    parser.add_argument("-c", "--cluster",
+                        help="Filter report on Cluster Name")
+
+    parser.add_argument("-n", "--namespace",
+                        help="Filter report on namespace")
 
     parser.add_argument("-p", "--package_name",
                         help="Filter report on package name. ie log4j")
+
+    parser.add_argument("-f", "--custom_filter", default="",
+                        help="Filter static reports")
 
     args = parser.parse_args()
 
     if args.namespace and not args.cluster:
         parser.error('Cluster is required when passing Namespace')
 
+    if args.report_type is None:
+        parser.error('--report_type is required.')
+
     return {
+        'TYPE':args.report_type,
         'CLUSTER':args.cluster,
         'NAMESPACE':args.namespace,
-        'PACKAGE_NAME':args.package_name
+        'PACKAGE_NAME':args.package_name,
+        'FILTER':args.custom_filter
     }
+
+def pipeline_images(registry):
+    url = API_ENDPOINT + '/api/scanning/v1/resultsDirect?filter=' + registry + '&sort=desc&sortBy=scanDate'
+    response = requests.request("GET", url, headers=API_HEADERS)
+    return response.json()
 
 def running_containers(cluster, namespace):
     url = API_ENDPOINT + '/api/scanning/v1/query/containers'
@@ -82,43 +98,79 @@ def vuln_data(image, image_vulns, package_name):
             result_list.append(dict_data)
 
 def data_format(image, image_vulns, vuln):
-    dict_format = {
-        "fullTag": image['repo'],
-        "imageID": image['imageId'],
-        "vtype": image_vulns.get('vtype', 'None'),
-        "vuln": vuln['vuln'],
-        "vulnURL": vuln.get('url', 'None'),
-        "package": vuln['package'],
-        "packageCPE": vuln['package_cpe'],
-        "packageName": vuln['package_name'],
-        "packagePath": vuln['package_path'],
-        "packageType": vuln['package_type'],
-        "severity": vuln['severity'],
-        "fixVersion":  vuln.get('fix', 'None'),
-        "lastEvaluated": image.get('lastEvaluatedAt', '0'),
-        "disclosureDate": vuln.get('disclosure_date', '0'),
-        "solutionDate": vuln.get('solution_date', '0'),
-    }
+    if 'fullTag' in image:
+        dict_format = {
+            "fullTag": image['fullTag'],
+            "imageID": image['imageId'],
+            "vtype": image_vulns.get('vtype', 'None'),
+            "vuln": vuln['vuln'],
+            "vulnURL": vuln.get('url', 'None'),
+            "package": vuln['package'],
+            "packageCPE": vuln['package_cpe'],
+            "packageName": vuln['package_name'],
+            "packagePath": vuln['package_path'],
+            "packageType": vuln['package_type'],
+            "severity": vuln['severity'],
+            "fixVersion":  vuln.get('fix', 'None'),
+            "lastEvaluated": image.get('lastEvaluatedAt', '0'),
+            "disclosureDate": vuln.get('disclosure_date', '0'),
+            "solutionDate": vuln.get('solution_date', '0'),
+        }
+    elif 'repo' in image:
+        dict_format = {
+            "fullTag": image['repo'],
+            "imageID": image['imageId'],
+            "vtype": image_vulns.get('vtype', 'None'),
+            "vuln": vuln['vuln'],
+            "vulnURL": vuln.get('url', 'None'),
+            "package": vuln['package'],
+            "packageCPE": vuln['package_cpe'],
+            "packageName": vuln['package_name'],
+            "packagePath": vuln['package_path'],
+            "packageType": vuln['package_type'],
+            "severity": vuln['severity'],
+            "fixVersion":  vuln.get('fix', 'None'),
+            "lastEvaluated": image.get('lastEvaluatedAt', '0'),
+            "disclosureDate": vuln.get('disclosure_date', '0'),
+            "solutionDate": vuln.get('solution_date', '0'),
+        }
     return dict_format
 
-def generate(package_name, imageList):
-    for image in imageList["images"]:
-        print(image['repo'] + ':' + image['tag'])
+def generate(report_type, package_name, imageList):
+    if report_type == 'static':
+        for image in imageList["results"]:
+            print(image['repository'] + ':' + image['tag'])
 
-        image_vulns = os_vulns(image['imageId'])
-        if len(image_vulns['vulns']) != 0:
-            vuln_data(image, image_vulns, package_name)
+            image_vulns = os_vulns(image['imageId'])
+            if len(image_vulns['vulns']) != 0:
+                vuln_data(image, image_vulns, package_name)
 
-        image_vulns = non_os_vulns(image['imageId'])
-        if len(image_vulns['vulns']) != 0:
-            vuln_data(image, image_vulns, package_name)
+            image_vulns = non_os_vulns(image['imageId'])
+            if len(image_vulns['vulns']) != 0:
+                vuln_data(image, image_vulns, package_name)
+    elif report_type == 'runtime':
+        for image in imageList["images"]:
+            print(image['repo'] + ':' + image['tag'])
+
+            image_vulns = os_vulns(image['imageId'])
+            if len(image_vulns['vulns']) != 0:
+                vuln_data(image, image_vulns, package_name)
+
+            image_vulns = non_os_vulns(image['imageId'])
+            if len(image_vulns['vulns']) != 0:
+                vuln_data(image, image_vulns, package_name)
     return result_list
 
 def main():
     args = opts()
 
-    imageList = running_containers(args['CLUSTER'], args['NAMESPACE'])
-    vulnList = generate(args['PACKAGE_NAME'], imageList)
+    if args['TYPE'] == 'static':
+        imageList = pipeline_images(args['FILTER'])
+        vulnList = generate(args['TYPE'], args['PACKAGE_NAME'], imageList)
+
+    elif args['TYPE'] == 'runtime':
+        imageList = running_containers(args['CLUSTER'], args['NAMESPACE'])
+        vulnList = generate(args['TYPE'], args['PACKAGE_NAME'], imageList)
 
     # Output JSON Results to terminal
     print(json.dumps(vulnList,indent=4, sort_keys=False))

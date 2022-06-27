@@ -20,10 +20,10 @@ result_list = []
 def opts():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-c", "--cluster", 
+    parser.add_argument("-c", "--cluster",
                         help="Filter report on Cluster Name.")
 
-    parser.add_argument("-n", "--namespace", 
+    parser.add_argument("-n", "--namespace",
                         help="Filter report on namespace.")
 
     parser.add_argument("-p", "--package_name",

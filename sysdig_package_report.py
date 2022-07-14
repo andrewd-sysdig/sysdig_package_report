@@ -1,15 +1,24 @@
 # Make sure to have 2 environment variables set
 # export API_TOKEN="<Your Sysdig Secure API Token>""
 # export API_ENDPOINT="https://app.au1.sysdig.com"
+# If you are using on-prem you may want to disable SSL Verification by setting:
+# export API_SSL_VERIFY=False
 
 import requests
 import os
 import json
 import csv
 import argparse
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 API_TOKEN = os.getenv('API_TOKEN')
 API_ENDPOINT = os.getenv('API_ENDPOINT')
+if os.getenv('API_SSL_VERIFY') in ("False","0","false","f"):
+    API_SSL_VERIFY = bool(False)
+else:
+    API_SSL_VERIFY = bool(True)
+
 API_HEADERS = {
   'Authorization': 'Bearer ' + API_TOKEN,
   'Content-Type': 'application/json'
@@ -21,13 +30,13 @@ def opts():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-t", "--report_type",
-                        help="Report type static/runtime")
+                        help="Report type: static|runtime", default="runtime")
 
     parser.add_argument("-c", "--cluster",
-                        help="Filter report on Cluster Name")
+                        help="Filter report on cluster name")
 
     parser.add_argument("-n", "--namespace",
-                        help="Filter report on namespace")
+                        help="Filter report on namespace name")
 
     parser.add_argument("-p", "--package_name",
                         help="Filter report on package name. ie log4j")
@@ -40,9 +49,6 @@ def opts():
     if args.namespace and not args.cluster:
         parser.error('Cluster is required when passing Namespace')
 
-    if args.report_type is None:
-        parser.error('--report_type is required.')
-
     return {
         'TYPE':args.report_type,
         'CLUSTER':args.cluster,
@@ -53,7 +59,7 @@ def opts():
 
 def pipeline_images(registry):
     url = API_ENDPOINT + '/api/scanning/v1/resultsDirect?filter=' + registry + '&sort=desc&sortBy=scanDate'
-    response = requests.request("GET", url, headers=API_HEADERS)
+    response = requests.request("GET", url, headers=API_HEADERS, verify=API_SSL_VERIFY)
     return response.json()
 
 def running_containers(cluster, namespace):
@@ -73,17 +79,17 @@ def running_containers(cluster, namespace):
         "skipPolicyEvaluation": False,
         "limit": 10000
         })
-    response = requests.request("POST", url, headers=API_HEADERS, data=payload)
+    response = requests.request("POST", url, headers=API_HEADERS, data=payload, verify=API_SSL_VERIFY)
     return response.json()
 
 def non_os_vulns(image):
     url = API_ENDPOINT + "/api/scanning/v1/images/by_id/" + image + "/vulnDirect/non-os"
-    response = requests.get(url, headers=API_HEADERS)
+    response = requests.get(url, headers=API_HEADERS, verify=API_SSL_VERIFY)
     return response.json()
 
 def os_vulns(image):
     url = API_ENDPOINT + "/api/scanning/v1/images/by_id/" + image + "/vulnDirect/os"
-    response = requests.get(url, headers=API_HEADERS)
+    response = requests.get(url, headers=API_HEADERS, verify=API_SSL_VERIFY)
     return response.json()
 
 def vuln_data(image, image_vulns, package_name):
@@ -163,7 +169,7 @@ def generate(report_type, package_name, imageList):
 
 def main():
     args = opts()
-
+    
     if args['TYPE'] == 'static':
         imageList = pipeline_images(args['FILTER'])
         vulnList = generate(args['TYPE'], args['PACKAGE_NAME'], imageList)

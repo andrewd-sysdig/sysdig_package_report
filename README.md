@@ -3,21 +3,30 @@ This script will get a list of images in runtime filtered by cluster & namespace
 
 Output report is written to the same directory as you run the script as output.csv and output.json
 
+## Prerequisites
+- python3
+- requests 
+``` pip3 install requests ```
+
 ## Usage examples
 Make sure to have 2 environment variables set appropriately
 ```
 export API_TOKEN="<Your Sysdig Secure API Token>"
 export API_ENDPOINT="https://app.au1.sysdig.com"
 ```
+If you are running this against an on-prem cluster you may need to set:
+```
+export API_SSL_VERIFY=false
+```
 
 ### Look in the cluster lab4, namespace example-voting-app for any vulnerabilities that have the log4j package
- ``` ./sysdig_package_report.py -c lab4 -n example-voting-app -p log4j ```
+ ``` python3 sysdig_package_report.py -c lab4 -n example-voting-app -p log4j ```
  
 ### Look in the cluster lab4, namespace sock-shop for any vulnerabilities  
- ``` ./sysdig_package_report.py -c lab4 -n sock-shop ```
+ ``` python3 sysdig_package_report.py -c lab4 -n sock-shop ```
  
 ### Look through all clusters and namespaces for any vulnerabilities with the package log4j
- ``` ./sysdig_package_report.py -p log4j ```
+ ``` python3 sysdig_package_report.py -p log4j ```
 
 ## Sample CSV output
   ```

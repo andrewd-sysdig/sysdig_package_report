@@ -1,4 +1,4 @@
-# Sysdig Package Report
+# Sysdig Vuln Package Report
 This script will get a list of images in runtime filtered by cluster & namespace (if specified) and then queries the list of vulnrabilities for those images. You can optionally specify a package name such as log4j with the -p command line parameter, this will then only list vulnrabilities relating to that package. 
 
 Output report is written to the same directory as you run the script as output.csv and output.json
@@ -20,13 +20,13 @@ export API_SSL_VERIFY=false
 ```
 
 ### Look in the cluster lab4, namespace example-voting-app for any vulnerabilities that have the log4j package
- ``` python3 sysdig_package_report.py -c lab4 -n example-voting-app -p log4j ```
+ ``` python3 sysdig_vuln_package_report.py -c lab4 -n example-voting-app -p log4j ```
  
 ### Look in the cluster lab4, namespace sock-shop for any vulnerabilities  
- ``` python3 sysdig_package_report.py -c lab4 -n sock-shop ```
+ ``` python3 sysdig_vuln_ppackage_report.py -c lab4 -n sock-shop ```
  
 ### Look through all clusters and namespaces for any vulnerabilities with the package log4j
- ``` python3 sysdig_package_report.py -p log4j ```
+ ``` python3 sysdig_vuln_ppackage_report.py -p log4j ```
 
 ## Sample CSV output
   ```

@@ -1,4 +1,4 @@
-# Sysdig Vuln Package Report
+# Sysdig Vuln Package Report - Legacy Engine
 This script will get a list of images in runtime filtered by cluster & namespace (if specified) and then queries the list of vulnrabilities for those images. You can optionally specify a package name such as log4j with the -p command line parameter, this will then only list vulnrabilities relating to that package. 
 
 Output report is written to the same directory as you run the script as output.csv and output.json
